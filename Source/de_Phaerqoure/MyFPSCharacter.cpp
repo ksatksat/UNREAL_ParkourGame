@@ -1,0 +1,78 @@
+#include "MyFPSCharacter.h"// <--- THIS MUST BE FIRST order matters
+#include "Camera/CameraComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/PlayerController.h"
+#include "Components/InputComponent.h"
+
+// 1. The Constructor (Matches the promise in the .h)
+AMyFPSCharacter::AMyFPSCharacter()
+{
+	PrimaryActorTick.bCanEverTick = false;
+
+	// Create the camera component
+	FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
+
+	// Attach it to the capsule (the "body")
+	FirstPersonCamera->SetupAttachment(GetCapsuleComponent());
+
+	// Position the camera at eye level (roughly 64 units up)
+	FirstPersonCamera->SetRelativeLocation(FVector(0.0f, 0.0f, 64.0f));
+
+	// Allow the pawn to rotate the camera when we move the mouse
+	FirstPersonCamera->bUsePawnControlRotation = true;
+}
+
+// 2. BeginPlay
+void AMyFPSCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+}
+
+// 3. Setup Input
+void AMyFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+	// Bind Movement
+	PlayerInputComponent->BindAxis("MoveForward", this, &AMyFPSCharacter::MoveForward);
+	PlayerInputComponent->BindAxis("MoveRight", this, &AMyFPSCharacter::MoveRight);
+
+	// Bind Mouse Look (These are built-in functions, so we don't need to write them!)
+	PlayerInputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
+	PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
+	//bind jump
+	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
+	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
+	// Inside SetupPlayerInputComponent crouch
+	PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &AMyFPSCharacter::StartCrouch);
+	PlayerInputComponent->BindAction("Crouch", IE_Released, this, &AMyFPSCharacter::StopCrouch);
+}
+
+// 4. MoveForward (Matches the promise in the .h)
+void AMyFPSCharacter::MoveForward(float Value)
+{
+	if (Value != 0.0f)
+	{
+		// Add movement in the forward direction
+		AddMovementInput(GetActorForwardVector(), Value);
+	}
+}
+
+// 5. MoveRight (Matches the promise in the .h)
+void AMyFPSCharacter::MoveRight(float Value)
+{
+	if (Value != 0.0f)
+	{
+		// Add movement in the right direction
+		AddMovementInput(GetActorRightVector(), Value);
+	}
+}
+void AMyFPSCharacter::StartCrouch()
+{
+	Crouch();
+}
+
+void AMyFPSCharacter::StopCrouch()
+{
+	UnCrouch();
+}

@@ -1,0 +1,32 @@
+# Unreal Engine Folders
+Binaries/
+Build/
+DerivedDataCache/
+Intermediate/
+Saved/
+
+# Visual Studio / IDE Folders
+.vs/
+.idea/
+.vscode/
+
+# Project Files (Unreal generates these from the .uproject)
+*.sln
+*.db
+*.opendb
+*.sdf
+*.suo
+*.user
+*.userprefs
+
+# Executables and Junk
+*.exe
+*.pdb
+*.obj
+*.log
+
+# Mac junk
+.DS_Store
+
+# Ignore the heavy Starter Content
+Content/StarterContent/
