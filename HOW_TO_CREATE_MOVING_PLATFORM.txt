@@ -1,0 +1,923 @@
+#pragma once
+
+
+
+#include "CoreMinimal.h"
+
+#include "GameFramework/Character.h"
+
+#include "MyFPSCharacter.generated.h"
+
+
+
+UCLASS()
+
+class DE_PHAERQOURE_API AMyFPSCharacter : public ACharacter
+
+{
+
+GENERATED_BODY()
+
+
+
+public:
+
+AMyFPSCharacter();
+
+// Wrapper functions for crouching
+
+void StartCrouch();
+
+void StopCrouch();
+
+
+
+public:
+
+// This is the "Camera" our player will look through
+
+UPROPERTY(VisibleAnywhere, Category = "Camera")
+
+class UCameraComponent* FirstPersonCamera;
+
+
+
+protected:
+
+virtual void BeginPlay() override;
+
+
+
+public:
+
+virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+
+
+// --- ADD THESE TWO LINES BELOW ---
+
+void MoveForward(float Value);
+
+void MoveRight(float Value);
+
+};
+
+============================================================
+
+#include "MyFPSCharacter.h"// <--- THIS MUST BE FIRST order matters
+
+#include "Camera/CameraComponent.h"
+
+#include "Components/CapsuleComponent.h"
+
+#include "GameFramework/PlayerController.h"
+
+#include "Components/InputComponent.h"
+
+
+
+// 1. The Constructor (Matches the promise in the .h)
+
+AMyFPSCharacter::AMyFPSCharacter()
+
+{
+
+PrimaryActorTick.bCanEverTick = false;
+
+
+
+// Create the camera component
+
+FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
+
+
+
+// Attach it to the capsule (the "body")
+
+FirstPersonCamera->SetupAttachment(GetCapsuleComponent());
+
+
+
+// Position the camera at eye level (roughly 64 units up)
+
+FirstPersonCamera->SetRelativeLocation(FVector(0.0f, 0.0f, 64.0f));
+
+
+
+// Allow the pawn to rotate the camera when we move the mouse
+
+FirstPersonCamera->bUsePawnControlRotation = true;
+
+}
+
+
+
+// 2. BeginPlay
+
+void AMyFPSCharacter::BeginPlay()
+
+{
+
+Super::BeginPlay();
+
+}
+
+
+
+// 3. Setup Input
+
+void AMyFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+
+{
+
+Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+
+
+// Bind Movement
+
+PlayerInputComponent->BindAxis("MoveForward", this, &AMyFPSCharacter::MoveForward);
+
+PlayerInputComponent->BindAxis("MoveRight", this, &AMyFPSCharacter::MoveRight);
+
+
+
+// Bind Mouse Look (These are built-in functions, so we don't need to write them!)
+
+PlayerInputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
+
+PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
+
+//bind jump
+
+PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
+
+PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
+
+// Inside SetupPlayerInputComponent crouch
+
+PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &AMyFPSCharacter::StartCrouch);
+
+PlayerInputComponent->BindAction("Crouch", IE_Released, this, &AMyFPSCharacter::StopCrouch);
+
+}
+
+
+
+// 4. MoveForward (Matches the promise in the .h)
+
+void AMyFPSCharacter::MoveForward(float Value)
+
+{
+
+if (Value != 0.0f)
+
+{
+
+// Add movement in the forward direction
+
+AddMovementInput(GetActorForwardVector(), Value);
+
+}
+
+}
+
+
+
+// 5. MoveRight (Matches the promise in the .h)
+
+void AMyFPSCharacter::MoveRight(float Value)
+
+{
+
+if (Value != 0.0f)
+
+{
+
+// Add movement in the right direction
+
+AddMovementInput(GetActorRightVector(), Value);
+
+}
+
+}
+
+void AMyFPSCharacter::StartCrouch()
+
+{
+
+Crouch();
+
+}
+
+
+
+void AMyFPSCharacter::StopCrouch()
+
+{
+
+UnCrouch();
+
+}
+
+Inside this parkour French monarch game My Holiness decided to add rectangle platforms that constantly moves from left to right and again. Character can stand on them and wait moment to jump to the next moving platform. Could you help me to create them please?
+
+Gemini said
+A noble addition to the kingdom! Moving platforms (the "Royal Carriages" of parkour) add the timing-based challenge your game needs.
+
+To achieve this, we will create a new C++ class called MovingPlatform. While you could do this with a Component, creating a dedicated Actor gives you more control over the physics—ensuring the player actually "sticks" to the platform instead of sliding off like a clumsy peasant.
+
+1. The Header: MovingPlatform.h
+Create a new C++ class inheriting from Actor. Here is the blueprint for its soul:
+
+C++
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Actor.h"
+#include "MovingPlatform.generated.h"
+
+UCLASS()
+class DE_PHAERQOURE_API AMovingPlatform : public AActor
+{
+	GENERATED_BODY()
+	
+public:	
+	AMovingPlatform();
+
+protected:
+	virtual void BeginPlay() override;
+
+public:	
+	virtual void Tick(float DeltaTime) override;
+
+	// The visual representation of our platform
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	class UStaticMeshComponent* PlatformMesh;
+
+	// How far should it travel from its start?
+	UPROPERTY(EditAnywhere, Category = "Movement")
+	FVector MoveVelocity = FVector(0.0f, 200.0f, 0.0f); // Default: move on Y axis
+
+	UPROPERTY(EditAnywhere, Category = "Movement")
+	float MaxDistance = 500.0f;
+
+private:
+	FVector StartLocation;
+};
+2. The Implementation: MovingPlatform.cpp
+We will use a "Ping-Pong" logic. When the platform moves further than its MaxDistance, it will reverse direction.
+
+C++
+#include "MovingPlatform.h"
+
+AMovingPlatform::AMovingPlatform()
+{
+ 	// Platforms MUST tick to move!
+	PrimaryActorTick.bCanEverTick = true;
+
+	// Create the mesh and make it the root
+	PlatformMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PlatformMesh"));
+	RootComponent = PlatformMesh;
+}
+
+void AMovingPlatform::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	// Record where we started so we know how far we've gone
+	StartLocation = GetActorLocation();
+}
+
+void AMovingPlatform::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	// 1. Move the platform forward based on velocity and time
+	FVector CurrentLocation = GetActorLocation();
+	CurrentLocation += (MoveVelocity * DeltaTime);
+	SetActorLocation(CurrentLocation);
+
+	// 2. Check how far we have traveled
+	float DistanceMoved = FVector::Dist(StartLocation, CurrentLocation);
+
+	// 3. If we exceed MaxDistance, reverse the velocity!
+	if (DistanceMoved >= MaxDistance)
+	{
+		// Smoothly reset the start location to prevent "drift" over time
+		FVector MoveDirection = MoveVelocity.GetSafeNormal();
+		StartLocation = StartLocation + (MoveDirection * MaxDistance);
+		SetActorLocation(StartLocation);
+
+		// Flip the direction
+		MoveVelocity = -MoveVelocity;
+	}
+}
+3. The "Royal GUI" Ritual (Don't skip this!)
+Once you compile your code, you must set up the platform in the Unreal Editor so your character doesn't fall through it:
+
+Create a Blueprint based on your new MovingPlatform C++ class.
+
+Add a Mesh: In the Blueprint editor, select the PlatformMesh and choose a "Cube" or "Floor" static mesh.
+
+Scale it: Make it look like a rectangular platform (e.g., Scale: X=2.0, Y=3.0, Z=0.2).
+
+MOBILITY: In the Details panel, ensure the actor is set to Movable (not Static), otherwise, the code cannot move it.
+
+Collision: Ensure "Collision Presets" is set to BlockAll.
+
+4. Why this works for Parkour
+In Unreal Engine, the ACharacter (which your AMyFPSCharacter inherits from) has a "Base" detection system. When you stand on a moving UStaticMeshComponent, the character's movement component detects the platform's velocity and automatically adds it to the player's position.
+
+This means you won't slide off while the platform is moving!
+
+A Note for the 2018 Laptop
+If you place 50 of these platforms, your CPU might start to sweat. To keep it optimized:
+
+Use the PrimaryActorTick.TickInterval = 0.0f; in the constructor. If the movement looks "choppy," you can set it slightly higher (like 0.01) to save resources, but 0.0f is usually best for smooth platforms.
+
+Make sure your platforms don't have "Complex Collision" enabled if they are just simple boxes. Simple box collision is much lighter on the hardware.
+
+Would you like me to show you how to add a "Sine Wave" to the movement so the platform slows down gracefully before it reverses, rather than snapping back instantly? It would make the platforms feel much more "Premium."
+
+You said
+1. The Header: MovingPlatform.h
+
+Create a new C++ class inheriting from Actor. Here is the blueprint for its soul:
+
+Thank you! How to create and where in what folder could you help me please?
+
+Gemini said
+To create this class correctly, you have two choices: the "Editor Ritual" (safest for Unreal's delicate ego) or the "Manual Architect" approach.
+
+Since Unreal Engine needs to generate a special .generated.h file for every class, I highly recommend using the Unreal Editor to "birth" the files first.
+
+1. The Creation Ritual (In the Unreal Editor)
+Open your project in the Unreal Editor.
+
+In the Content Browser at the bottom, look for the C++ Classes folder.
+
+Right-click in an empty space and select New C++ Class....
+
+Choose Actor as the Parent Class (since a platform is something that "exists" in the world but isn't a person).
+
+Name it MovingPlatform.
+
+Click Create Class.
+
+Unreal will now compile the boilerplate code and automatically open Visual Studio 2017 for you.
+
+2. Where the files live (The Folder Path)
+If you need to find them on your hard drive to verify they aren't hiding, they will be here:
+
+D:\UNREAL_games\PARKOUR\de_Phaerqoure\Source\de_Phaerqoure\
+
+MovingPlatform.h: The "Blueprint" or "Contract" of the class.
+
+MovingPlatform.cpp: The "Muscle" or "Logic" of the class.
+
+3. Injecting the "Soul" (How to use the code)
+Now that Unreal has created the files, they will have some default code inside. You need to replace that default code with the logic I gave you.
+
+For the .h (Header):
+Keep the #include "MovingPlatform.generated.h" at the very bottom of the includes.
+
+Keep the DE_PHAERQOURE_API macro—that's what tells the engine your project owns this class.
+
+Paste the UPROPERTY lines and function declarations inside the class brackets.
+
+For the .cpp (Implementation):
+Ensure #include "MovingPlatform.h" is the absolute first line.
+
+Paste the logic for the Constructor, BeginPlay, and Tick as shown in the previous message.
+
+4. The "Live Coding" vs. "Restart" Rule
+Because you are adding a new UPROPERTY (the MoveVelocity and MaxDistance), Unreal's "Live Coding" (the little lightning bolt button) sometimes gets confused.
+
+Pro-Tip for your 2018 Laptop:
+
+Close the Unreal Editor.
+
+Build the solution in Visual Studio (Ctrl + Shift + B).
+
+Re-open the Unreal Editor.
+This ensures the "Property" shows up in the details panel so you can actually edit the speed of your platforms!
+
+Troubleshooting: "I don't see my files!"
+If Visual Studio doesn't show the new files in the "Solution Explorer" on the right:
+
+Right-click the .uproject file in your main folder.
+
+Select Generate Visual Studio project files.
+This forces the "Royal Ledger" to update and recognize the new C++ files.
+
+Once you have successfully compiled and can see the "MoveVelocity" setting in the Unreal Editor, would you like me to show you how to add a "Sine Wave" movement so the platform doesn't just "snap" back, but slows down smoothly like a luxury elevator?
+
+You said
+3. The "Royal GUI" Ritual (Don't skip this!)
+
+Once you compile your code, you must set up the platform in the Unreal Editor so your character doesn't fall through it:
+
+
+
+Create a Blueprint based on your new MovingPlatform C++ class.
+
+How to do this step? Create a Blueprint?
+
+Gemini said
+This is where the "DNA" of your C++ code meets the "Physical Body" of the game. In Unreal, we rarely place a raw C++ class directly into the world; instead, we create a Blueprint Class that inherits from it. This allows you to choose the 3D model (mesh) and colors visually.
+
+Here is the ritual to bring your platform to life:
+
+Step 1: Locate the "Ancestry"
+In the Content Browser (bottom of the screen), look for the folder named C++ Classes.
+
+Open the folder named after your project (e.g., de_Phaerqoure).
+
+Find your MovingPlatform icon (it usually has a small "C++" symbol on it).
+
+Step 2: The Creation
+Right-click on the MovingPlatform C++ class.
+
+Select the very first option: Create Blueprint class based on MovingPlatform.
+
+Naming is Key: Call it BP_MovingPlatform.
+
+Tip: Putting BP_ at the start is the professional "Royal Standard" so you can easily tell Blueprints apart from C++ files.
+
+Step 3: Giving it a Body
+Double-click your new BP_MovingPlatform to open the Blueprint Editor window.
+
+On the left side, in the Components panel, click on PlatformMesh.
+
+On the right side, in the Details panel, look for the Static Mesh section.
+
+Click the dropdown (usually says "None") and type "Cube" or "Floor". Select one.
+
+Scale it: Use the Scale tool (or type in the details) to make it look like a wide platform (e.g., X=3.0, Y=3.0, Z=0.2).
+
+Step 4: The Physics Check (Very Important!)
+To ensure your noble character can actually stand on this moving carriage:
+
+With the PlatformMesh still selected, scroll down the Details panel to Collision.
+
+Ensure Collision Presets is set to BlockAll.
+
+Look at the top of the Details panel (under the name) and ensure the Mobility is set to Movable.
+
+If it is set to "Static," your C++ code will try to move it, but the engine will forbid it!
+
+Step 5: Compile and Place
+Click the Compile button at the top left of the Blueprint window (the big question mark will turn into a green checkmark).
+
+Click Save.
+
+Now, simply drag and drop BP_MovingPlatform from your Content Browser into your Level!
+
+How to Edit the Speed
+Once the platform is in your level, click on it. Look at the Details panel on the right. You will see your C++ variables:
+
+Move Velocity: Change the Y value to 500 to make it a fast platform.
+
+Max Distance: Change this to 1000 to make it travel a long way.
+
+Why this is better than just C++
+If you want one platform to move Left-Right and another to move Up-Down, you don't need new code! Just place two BP_MovingPlatform actors and change their Move Velocity in the editor:
+
+Platform A: Velocity (0, 200, 0) — Moves Left/Right
+
+Platform B: Velocity (0, 0, 200) — Moves Up/Down
+
+Is your platform now sliding majestically across the screen? If it is, would you like to add a "Jump Pad" next that launches your character into the air when they step on it?
+
+You said
+Step 3: Giving it a Body
+
+Double-click your new BP_MovingPlatform to open the Blueprint Editor window.
+
+On the left side, in the Components panel, click on PlatformMesh.
+
+can't find platform mesh . Could you help me please?
+
+Gemini said
+Ah, the invisible carriage! This is a common "ghost" in the machine. If the PlatformMesh is missing from the list, it usually means the Unreal Editor hasn't fully "digested" the new C++ code you wrote. Even if the code is saved in Visual Studio, the Editor needs a proper nudge to see the new components.
+
+Here is how we summon the missing component back to the mortal realm:
+
+1. The "Hard Build" (The most likely fix)
+Unreal's "Live Coding" (the lightning bolt button) is often too lazy to show new components. We need a full compile.
+
+Save everything in Visual Studio.
+
+Close the Unreal Editor completely.
+
+In Visual Studio, look at the top bar. Ensure it says Development Editor and Win64.
+
+Press Ctrl + Shift + B (or go to Build > Build Solution).
+
+Wait for the "Build Succeeded" message at the bottom.
+
+Re-open the Unreal Editor. Now check the Blueprint again.
+
+2. The "Blueprint Refresh"
+Sometimes a Blueprint is created before the C++ parent is ready, and it gets "stuck" in the past.
+
+Open BP_MovingPlatform.
+
+Look at the top right. It should say Parent Class: MovingPlatform. If it says Actor, it’s wrong!
+
+If it says MovingPlatform but the mesh is still missing, try this:
+
+Go to the top menu of the Blueprint window: File > Reparent Blueprint.
+
+Select MovingPlatform again. This often forces the "DNA" to update.
+
+3. Check the "Royal Ledger" (The Code)
+Let's double-check your MovingPlatform.h file. To show up in the components panel, it must have these exact keywords:
+
+C++
+// Check your .h file for this line:
+UPROPERTY(VisibleAnywhere, Category = "Components")
+class UStaticMeshComponent* PlatformMesh;
+If it says EditAnywhere instead of VisibleAnywhere, it can sometimes cause issues with components created in the constructor. In Unreal, we use VisibleAnywhere for the "pointer" to the component itself, which allows us to edit its properties (like the mesh) in the GUI.
+
+4. Where to look in the GUI
+Just to be absolutely sure, look at the top-left corner of the Blueprint Editor. It should look like a small tree.
+
+If you see (Inherited) next to a component, that is your C++ code working!
+
+If you see nothing under "DefaultSceneRoot," then the C++ constructor code hasn't run yet.
+
+The "Nuclear" Option (If all else fails)
+If the build succeeded but the component is still a ghost:
+
+Delete the BP_MovingPlatform from your Content Browser.
+
+Right-click the MovingPlatform C++ class again.
+
+Select Create Blueprint class based on MovingPlatform.
+
+Opening this new Blueprint will almost certainly show the PlatformMesh.
+
+Did the "Hard Build" (closing the editor and building in VS) bring the mesh back from the void? Once you see it, we can finally give your platform a 3D body!
+
+You said
+#pragma once
+
+
+
+#include "CoreMinimal.h"
+
+#include "GameFramework/Actor.h"
+
+#include "MovingPlatform.generated.h"
+
+
+
+UCLASS()
+
+class DE_PHAERQOURE_API AMovingPlatform : public AActor
+
+{
+
+GENERATED_BODY()
+
+
+
+public:
+
+AMovingPlatform();
+
+
+
+protected:
+
+virtual void BeginPlay() override;
+
+
+
+public:
+
+virtual void Tick(float DeltaTime) override;
+
+
+
+// The visual representation of our platform
+
+UPROPERTY(VisibleAnywhere, Category = "Components")
+
+class UStaticMeshComponent* PlatformMesh;
+
+
+
+// How far should it travel from its start?
+
+UPROPERTY(EditAnywhere, Category = "Movement")
+
+FVector MoveVelocity = FVector(0.0f, 200.0f, 0.0f); // Default: move on Y axis
+
+
+
+UPROPERTY(EditAnywhere, Category = "Movement")
+
+float MaxDistance = 500.0f;
+
+
+
+private:
+
+FVector StartLocation;
+
+};
+
+==================================================
+
+#include "MovingPlatform.h"
+
+
+
+AMovingPlatform::AMovingPlatform()
+
+{
+
+// Platforms MUST tick to move!
+
+PrimaryActorTick.bCanEverTick = true;
+
+
+
+// Create the mesh and make it the root
+
+PlatformMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PlatformMesh"));
+
+RootComponent = PlatformMesh;
+
+}
+
+
+
+void AMovingPlatform::BeginPlay()
+
+{
+
+Super::BeginPlay();
+
+
+
+// Record where we started so we know how far we've gone
+
+StartLocation = GetActorLocation();
+
+}
+
+
+
+void AMovingPlatform::Tick(float DeltaTime)
+
+{
+
+Super::Tick(DeltaTime);
+
+
+
+// 1. Move the platform forward based on velocity and time
+
+FVector CurrentLocation = GetActorLocation();
+
+CurrentLocation += (MoveVelocity * DeltaTime);
+
+SetActorLocation(CurrentLocation);
+
+
+
+// 2. Check how far we have traveled
+
+float DistanceMoved = FVector::Dist(StartLocation, CurrentLocation);
+
+
+
+// 3. If we exceed MaxDistance, reverse the velocity!
+
+if (DistanceMoved >= MaxDistance)
+
+{
+
+// Smoothly reset the start location to prevent "drift" over time
+
+FVector MoveDirection = MoveVelocity.GetSafeNormal();
+
+StartLocation = StartLocation + (MoveDirection * MaxDistance);
+
+SetActorLocation(StartLocation);
+
+
+
+// Flip the direction
+
+MoveVelocity = -MoveVelocity;
+
+}
+
+}
+
+
+
+#define GENERATED_ BODY(...) BODY MACRO_COMBINE(CURRENT_FILE ID,_LINE_GENERATED_BODY):
+
+Expands to: de_Phaerqoure_Source_de_Phaerqoure_MovingPlatform_h_10_GENERATED_BODY:
+
+ingl
+
+this declaration has no storage class or type specifier
+
+d:
+
+ual
+
+Browsing operations around this macro may fall. Consider adding it to a hint fle.
+
+
+
+and error with :
+
+RootComponent = PlatformMesh;
+
+a value of type "UStaticMeshComponent ** cannot be assigned to an entity of type "USceneComponent *"
+
+Could you help me please?
+
+Gemini said
+D'accord! It looks like you have encountered two very common "noble traps" in Unreal Engine C++.
+
+The first issue is that some "ghost text" (the internal definition of a macro) seems to have been accidentally pasted into your file. The second is a classic case of a missing include that is confusing the compiler's understanding of "Family Trees" (inheritance).
+
+Here is the fix for your "Royal Carriage" platforms.
+
+1. Fix the "GENERATED_BODY" Mutiny
+In your snippet, you have lines like #define GENERATED_ BODY(...). Delete those entirely. Those are internal instructions that the computer uses behind the scenes. If they are visible in your .h or .cpp file, the compiler will panic. Your header should only have the simple GENERATED_BODY() macro inside the class.
+
+2. Fix the "Type Mismatch" (The Missing Include)
+The error a value of type "UStaticMeshComponent*" cannot be assigned to "USceneComponent*" happens because the compiler doesn't know that a UStaticMeshComponent is a "child" of USceneComponent.
+
+To fix this, you must tell the .cpp file exactly what a UStaticMeshComponent is by adding its header.
+
+The Corrected Code
+MovingPlatform.h
+Make sure your header is clean. No #define macros!
+
+C++
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Actor.h"
+#include "MovingPlatform.generated.h"
+
+UCLASS()
+class DE_PHAERQOURE_API AMovingPlatform : public AActor
+{
+	GENERATED_BODY() // Clean and simple! No extra text here.
+
+public:
+	AMovingPlatform();
+
+protected:
+	virtual void BeginPlay() override;
+
+public:
+	virtual void Tick(float DeltaTime) override;
+
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	class UStaticMeshComponent* PlatformMesh;
+
+	UPROPERTY(EditAnywhere, Category = "Movement")
+	FVector MoveVelocity = FVector(0.0f, 200.0f, 0.0f);
+
+	UPROPERTY(EditAnywhere, Category = "Movement")
+	float MaxDistance = 500.0f;
+
+private:
+	FVector StartLocation;
+};
+MovingPlatform.cpp
+You must add the #include "Components/StaticMeshComponent.h" line at the top.
+
+C++
+#include "MovingPlatform.h"
+// --- ADD THIS LINE BELOW ---
+#include "Components/StaticMeshComponent.h" 
+
+AMovingPlatform::AMovingPlatform()
+{
+	PrimaryActorTick.bCanEverTick = true;
+
+	// Now that we included StaticMeshComponent.h, the line below will work!
+	PlatformMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PlatformMesh"));
+	RootComponent = PlatformMesh;
+}
+
+void AMovingPlatform::BeginPlay()
+{
+	Super::BeginPlay();
+	StartLocation = GetActorLocation();
+}
+
+void AMovingPlatform::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	FVector CurrentLocation = GetActorLocation();
+	CurrentLocation += (MoveVelocity * DeltaTime);
+	SetActorLocation(CurrentLocation);
+
+	float DistanceMoved = FVector::Dist(StartLocation, CurrentLocation);
+
+	if (DistanceMoved >= MaxDistance)
+	{
+		FVector MoveDirection = MoveVelocity.GetSafeNormal();
+		StartLocation = StartLocation + (MoveDirection * MaxDistance);
+		SetActorLocation(StartLocation);
+		MoveVelocity = -MoveVelocity;
+	}
+}
+Why this works:
+Macro Cleanliness: GENERATED_BODY() is a secret door. If you try to write out what's inside the door (like that #define text you had), the engine gets confused and crashes.
+
+The "Inheritance" Secret: In the .h file, we used class UStaticMeshComponent*. This is a Forward Declaration. It tells the computer "there is a thing called this." But it doesn't explain what it is.
+
+The Include: By adding #include "Components/StaticMeshComponent.h" in the .cpp, you are giving the compiler the full biography of that class. Only then does the compiler realize: "Ah! A StaticMeshComponent is a type of SceneComponent, so I can safely put it into the RootComponent slot!"
+
+A Note for your 2018 Laptop
+If Visual Studio still shows red squiggly lines after you fix this, ignore them and try to Compile anyway. IntelliSense (the red lines) on older laptops often struggles to keep up with Unreal Engine's massive library. Trust the "Build Succeeded" message, not the red lines!
+
+Once you have compiled successfully, are you ready to drag your platform into the world and see if your character can ride it without falling?
+
+You said
+Thank you! Now I don't have errors in my VS 2017 what to do next in Unreal ? I haven't finished settings in Unreal because of errors in VS
+
+Gemini said
+Magnifique! With the "Royal Ledger" (Visual Studio) error-free, the heavy lifting is done. Now we must return to the Unreal Editor to give this code a physical form.
+
+Think of your C++ code as the Soul and the Unreal Blueprint as the Body. Here is how to complete the ritual.
+
+Step 1: The Grand Sync (Compiling)
+Even though VS 2017 is happy, Unreal might not know it yet.
+
+Go back to the Unreal Editor.
+
+Look for the Compile button at the top (usually in the middle of the top toolbar).
+
+Click it and wait for the "Compile Complete" sound (the happy chime).
+
+Step 2: Birth the Blueprint
+We never place the "Raw C++" into the level; we create a Blueprint "Child" of it.
+
+In the Content Browser, go to C++ Classes > [YourProjectName].
+
+Right-click on your MovingPlatform class.
+
+Select Create Blueprint class based on MovingPlatform.
+
+Name it BP_MovingPlatform and save it in your Content folder.
+
+Step 3: Dress the Platform (Adding the Mesh)
+Double-click BP_MovingPlatform to open the editor.
+
+On the left, in the Components panel, you should now see PlatformMesh (Inherited). Click it.
+
+On the right, in the Details panel, find the Static Mesh slot.
+
+Select a mesh (type "Cube" or "Floor_400x400" in the search).
+
+Important: In the Transform section, change the Scale (e.g., X: 3.0, Y: 3.0, Z: 0.2) to make it look like a flat platform.
+
+Step 4: The "Movable" Decree (Crucial!)
+By default, meshes are "Static." If you don't change this, your code will try to move the platform, but the engine will block it.
+
+With PlatformMesh still selected, look at the top of the Details panel.
+
+Under the name, change Mobility from "Static" to Movable.
+
+Step 5: Configure the Movement
+Now, look further down the Details panel for the "Movement" category we created in code.
+
+Move Velocity: Set the values (e.g., Y = 300) to decide which direction it heads first.
+
+Max Distance: Set this to 800 or more so it has room to travel.
+
+Step 6: The Field Test
+Drag BP_MovingPlatform from the Content Browser into your level.
+
+Place it near your character.
+
+Press Play (Alt + P).
+
+Troubleshooting: "It's not moving!"
+If the platform stays still like a stubborn mule:
+
+Check Mobility: Ensure it is set to Movable.
+
+Check Velocity: Ensure MoveVelocity isn't (0,0,0).
+
+Check Physics: Ensure "Simulate Physics" is OFF. We are moving it via code (kinematically), not via gravity!
+
+Is your platform now gliding majestically across the palace grounds? Once it's moving, would you like to see how to make it "Wait" for 2 seconds at each end so the player has time to jump on?

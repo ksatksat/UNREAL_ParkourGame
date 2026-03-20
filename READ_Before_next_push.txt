@@ -1,0 +1,4 @@
+change gitignore cause it ignores many important textures and so on files
+maybe delete this lines from gitignore 
+# Ignore the heavy Starter Content
+Content/StarterContent/

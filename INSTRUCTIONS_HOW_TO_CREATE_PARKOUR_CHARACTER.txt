@@ -1,0 +1,65 @@
+To build this "Phaerqoure" project again from scratch without losing your mind, you need the Great Map of GUI Rituals. C++ provides the logic, but the Unreal GUI provides the "World" and the "Soul."
+
+Here are the non-scripting steps we took to make your character a high-born athlete.
+
+I. The Project Foundation
+Before the first line of code, the project must be born correctly.
+
+Project Creation: New Project > C++ > Basic Code (not Blueprint).
+
+Starter Content: We initially included it for the "Floor," but we learned to ignore it in Git later to save your laptop's life.
+
+Input Map (The Royal Grammar): * Go to Edit > Project Settings > Input.
+
+Action Mappings: We created "Jump" (Space Bar) and "Crouch" (C).
+
+Axis Mappings: We created "MoveForward" (W/S), "MoveRight" (A/D), "Turn" (Mouse X), and "LookUp" (Mouse Y).
+
+II. The Blueprint Metamorphosis
+C++ classes are invisible. We had to make them "real" in the Editor.
+
+The Child Blueprint: Right-click your C++ class MyFPSCharacter > Create Blueprint Class based on MyFPSCharacter. Name it BP_Phaerqoure_Player.
+
+GameMode Assignment:
+
+Open World Settings (Window > World Settings).
+
+Under GameMode Override, select your project's GameMode.
+
+Under Default Pawn Class, select your BP_Phaerqoure_Player.
+
+III. The Viewport Refinement (Aristocratic Aesthetics)
+This is where we adjusted the "Height" of your noble perspective.
+
+Camera Placement: Inside the Blueprint Viewport, we clicked the CameraComponent.
+
+The Height: We set the Location Z to 75.0 (Aristocratique) so you weren't "Le Petit" anymore.
+
+Rotation: Checked Use Pawn Control Rotation on the camera so your mouse could actually tilt the view.
+
+IV. The Physics of Grace (CharacterMovement)
+This is the most important "feel" part of the GUI. We clicked on the CharacterMovement Component in the Blueprint and changed:
+
+Can Crouch: Checked (essential for the C++ code to work!).
+
+Max Walk Speed: Raised to 800 for better pace.
+
+Jump Z Velocity: Raised to 700 for leaping over walls.
+
+Air Control: Set to 0.4 so you can steer while jumping.
+
+V. Optimization for the 2018 Laptop
+To keep your GPU from screaming, we performed these "Rituals of Performance":
+
+Mesh Shadows: Selected the Mesh and ensured Cast Shadow was ON (for parkour depth) but Receive Decals was OFF (to save power).
+
+Lighting: We clicked the Build button (top toolbar) to bake lighting.
+
+Note: On an old laptop, "Static" lighting is much faster than "Dynamic" lighting.
+
+VI. The Git "Guillotine" (External Setup)
+While not inside Unreal, this GUI/Terminal setup was vital:
+
+The .gitignore: Created a text file to hide the "Peasant" files (Intermediate, Saved, Binaries).
+
+The Remote Rename: Changed the name of the GitHub link from origin to a noble name like LePalais.
