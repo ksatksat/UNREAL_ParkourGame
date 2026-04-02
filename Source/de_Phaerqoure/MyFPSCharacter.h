@@ -11,12 +11,12 @@ class DE_PHAERQOURE_API AMyFPSCharacter : public ACharacter
 
 public:
 	AMyFPSCharacter();
-	// Wrapper functions for crouching
+	// 
 	void StartCrouch();
 	void StopCrouch();
 
 public:
-	// This is the "Camera" our player will look through
+	// 
 	UPROPERTY(VisibleAnywhere, Category = "Camera")
 		class UCameraComponent* FirstPersonCamera;
 
@@ -26,7 +26,7 @@ protected:
 public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	// --- ADD THESE TWO LINES BELOW ---
+	//
 	void MoveForward(float Value);
 	void MoveRight(float Value);
 };

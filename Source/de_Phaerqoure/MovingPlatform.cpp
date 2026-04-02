@@ -1,12 +1,12 @@
 #include "MovingPlatform.h"
-// --- ADD THIS LINE BELOW ---
+
 #include "Components/StaticMeshComponent.h" 
 
 AMovingPlatform::AMovingPlatform()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	// Now that we included StaticMeshComponent.h, the line below will work!
+
 	PlatformMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PlatformMesh"));
 	RootComponent = PlatformMesh;
 }
@@ -15,7 +15,7 @@ void AMovingPlatform::BeginPlay()
 {
 	Super::BeginPlay();
 	StartLocation = GetActorLocation();
-	// If the user checked "bStartInverted" in the editor, flip the direction!
+
 	if (bStartInverted)
 	{
 		MoveVelocity = -MoveVelocity;
